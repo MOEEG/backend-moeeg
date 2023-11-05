@@ -104,8 +104,13 @@ def createPatients():
     #print(request.json)
     id = db_patient.insert_one({
         'name':request.json["name"],
-        'lastname':request.json["lastname"],
-        'phone':request.json["phone"]
+        'dni':request.json["dni"],
+        'email':request.json["email"],
+        'password':request.json["password"],
+        'phone':request.json["phone"],
+        'age':request.json["age"],
+        'contact_name':request.json["contact_name"],
+        'contact_phone':request.json["contact_phone"]
     })
     return jsonify(str(id.inserted_id))
 
@@ -116,8 +121,13 @@ def getPatients():
         patients.append({
             "_id": str(ObjectId(pat['_id'])),
             'name':str(pat["name"]),
-            'lastname':str(pat["lastname"]),
-            'phone':str(pat["phone"])   
+            'dni':str(pat["dni"]),
+            'email':str(pat["email"]),
+            'password':str(pat["password"]),
+            'phone':str(pat["phone"]),
+            'age':str(pat["age"]),        
+            'contact_name':str(pat["contact_name"]),        
+            'contact_phone':str(pat["contact_phone"])        
         })
     return jsonify(patients)
 
@@ -127,8 +137,13 @@ def getPatient(id):
     return jsonify({
         "_id": str(ObjectId(patient['_id'])),
         'name':patient["name"],
-        'lastname':patient["lastname"],
-        'phone':patient["phone"]           
+        'dni':patient["dni"],
+        'email':patient["email"],
+        'password':patient["password"],
+        'phone':patient["phone"],
+        'age':patient["age"],
+        'contact_name':patient["contact_name"],
+        'contact_phone':patient["contact_phone"],
     })
 
 @app.route('/patients/<id>', methods= ['DELETE'])
@@ -143,80 +158,18 @@ def deletePatient(id):
 def updatePatient(id):
     db_patient.update_one({"_id":ObjectId(id)},{'$set':{
         'name':request.json["name"],
-        'lastname':request.json["lastname"],
-        'phone':request.json["phone"]
+        'dni':request.json["dni"],
+        'email':request.json["email"],
+        'password':request.json["password"],
+        'phone':request.json["phone"],
+        'age':request.json["age"],
+        'contact_name':request.json["contact_name"],
+        'contact_phone':request.json["contact_phone"]
     }})
     return jsonify({
         "msg": "Patient updated",
         "patient": id
         })
-
-# db_patient = mongo.db.patients
-
-# @app.route('/patients', methods= ['POST'])
-# def createPatients():
-#     #imprime los datos que el cliente te está enviando
-#     #print(request.json)
-#     id = db_patient.insert_one({
-#         'name':request.json["name"],
-#         'dni':request.json["dni"],
-#         'email':request.json["email"],
-#         'password':request.json["password"],
-#         'phone':request.json["phone"],
-#         'age':request.json["age"]
-#     })
-#     return jsonify(str(id.inserted_id))
-
-# @app.route('/patients', methods= ['GET'])
-# def getPatients():
-#     patients = []
-#     for pat in db_patient.find():
-#         patients.append({
-#             "_id": str(ObjectId(pat['_id'])),
-#             'name':str(pat["name"]),
-#             'dni':str(pat["dni"]),
-#             'email':str(pat["email"]),
-#             'password':str(pat["password"]),
-#             'phone':str(pat["phone"]),
-#             'age':str(pat["age"])        
-#         })
-#     return jsonify(patients)
-
-# @app.route('/patients/<id>', methods= ['GET'])
-# def getPatient(id):
-#     patient=db_patient.find_one({'_id':ObjectId(id)})
-#     return jsonify({
-#         "_id": str(ObjectId(patient['_id'])),
-#         'name':patient["name"],
-#         'dni':patient["dni"],
-#         'email':patient["email"],
-#         'password':patient["password"],
-#         'phone':patient["phone"],
-#         'age':patient["age"]                
-#     })
-
-# @app.route('/patients/<id>', methods= ['DELETE'])
-# def deletePatient(id):
-#     patient = db_patient.delete_one({"_id":ObjectId(id)})
-#     return jsonify({
-#         "msg": "patient deleted",
-#         "patient": id
-#         })
-
-# @app.route('/patients/<id>', methods= ['PUT'])
-# def updatePatient(id):
-#     db_patient.update_one({"_id":ObjectId(id)},{'$set':{
-#         'name':request.json["name"],
-#         'dni':request.json["dni"],
-#         'email':request.json["email"],
-#         'password':request.json["password"],
-#         'phone':request.json["phone"],
-#         'age':request.json["age"]
-#     }})
-#     return jsonify({
-#         "msg": "Patient updated",
-#         "patient": id
-#         })
 
 
 
