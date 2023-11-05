@@ -8,7 +8,7 @@ import os
 import mne
 
 app = Flask(__name__)
-##app.config['MONGO_URI']='mongodb://18.219.115.121/moeegdb'
+##app.config['MONGO_URI']='mongodb://18.117.105.88/moeegdb'
 app.config['MONGO_URI']='mongodb://localhost/moeegdb'
 #La conexión
 mongo = PyMongo(app)
@@ -19,6 +19,9 @@ CORS(app)
 #Definición de colección de usuarios
 db_user = mongo.db.users
 
+###################################
+######## Registrar Doctor ########
+###################################
 @app.route('/users', methods= ['POST'])
 def createUsers():
     #imprime los datos que el cliente te está enviando
@@ -84,20 +87,165 @@ def updateUser(id):
         "user": id
         })
 
+
+
+
+
+
+####################################
+######## Registrar Paciente ########
+####################################
+
+db_patient = mongo.db.patients
+
+@app.route('/patients', methods= ['POST'])
+def createPatients():
+    #imprime los datos que el cliente te está enviando
+    #print(request.json)
+    id = db_patient.insert_one({
+        'name':request.json["name"],
+        'lastname':request.json["lastname"],
+        'phone':request.json["phone"]
+    })
+    return jsonify(str(id.inserted_id))
+
+@app.route('/patients', methods= ['GET'])
+def getPatients():
+    patients = []
+    for pat in db_patient.find():
+        patients.append({
+            "_id": str(ObjectId(pat['_id'])),
+            'name':str(pat["name"]),
+            'lastname':str(pat["lastname"]),
+            'phone':str(pat["phone"])   
+        })
+    return jsonify(patients)
+
+@app.route('/patients/<id>', methods= ['GET'])
+def getPatient(id):
+    patient=db_patient.find_one({'_id':ObjectId(id)})
+    return jsonify({
+        "_id": str(ObjectId(patient['_id'])),
+        'name':patient["name"],
+        'lastname':patient["lastname"],
+        'phone':patient["phone"]           
+    })
+
+@app.route('/patients/<id>', methods= ['DELETE'])
+def deletePatient(id):
+    patient = db_patient.delete_one({"_id":ObjectId(id)})
+    return jsonify({
+        "msg": "patient deleted",
+        "patient": id
+        })
+
+@app.route('/patients/<id>', methods= ['PUT'])
+def updatePatient(id):
+    db_patient.update_one({"_id":ObjectId(id)},{'$set':{
+        'name':request.json["name"],
+        'lastname':request.json["lastname"],
+        'phone':request.json["phone"]
+    }})
+    return jsonify({
+        "msg": "Patient updated",
+        "patient": id
+        })
+
+# db_patient = mongo.db.patients
+
+# @app.route('/patients', methods= ['POST'])
+# def createPatients():
+#     #imprime los datos que el cliente te está enviando
+#     #print(request.json)
+#     id = db_patient.insert_one({
+#         'name':request.json["name"],
+#         'dni':request.json["dni"],
+#         'email':request.json["email"],
+#         'password':request.json["password"],
+#         'phone':request.json["phone"],
+#         'age':request.json["age"]
+#     })
+#     return jsonify(str(id.inserted_id))
+
+# @app.route('/patients', methods= ['GET'])
+# def getPatients():
+#     patients = []
+#     for pat in db_patient.find():
+#         patients.append({
+#             "_id": str(ObjectId(pat['_id'])),
+#             'name':str(pat["name"]),
+#             'dni':str(pat["dni"]),
+#             'email':str(pat["email"]),
+#             'password':str(pat["password"]),
+#             'phone':str(pat["phone"]),
+#             'age':str(pat["age"])        
+#         })
+#     return jsonify(patients)
+
+# @app.route('/patients/<id>', methods= ['GET'])
+# def getPatient(id):
+#     patient=db_patient.find_one({'_id':ObjectId(id)})
+#     return jsonify({
+#         "_id": str(ObjectId(patient['_id'])),
+#         'name':patient["name"],
+#         'dni':patient["dni"],
+#         'email':patient["email"],
+#         'password':patient["password"],
+#         'phone':patient["phone"],
+#         'age':patient["age"]                
+#     })
+
+# @app.route('/patients/<id>', methods= ['DELETE'])
+# def deletePatient(id):
+#     patient = db_patient.delete_one({"_id":ObjectId(id)})
+#     return jsonify({
+#         "msg": "patient deleted",
+#         "patient": id
+#         })
+
+# @app.route('/patients/<id>', methods= ['PUT'])
+# def updatePatient(id):
+#     db_patient.update_one({"_id":ObjectId(id)},{'$set':{
+#         'name':request.json["name"],
+#         'dni':request.json["dni"],
+#         'email':request.json["email"],
+#         'password':request.json["password"],
+#         'phone':request.json["phone"],
+#         'age':request.json["age"]
+#     }})
+#     return jsonify({
+#         "msg": "Patient updated",
+#         "patient": id
+#         })
+
+
+
+
+
+
+##################################
+####### Registrar Archivo ########
+##################################
 #Upload and Retrieve File AWS Mongo
 
 #Definición de colección de media
 db_medias = mongo.db.medias
 
-
 @app.route('/medias', methods=['POST'])
 def createMedia():
     try:
         eeg_file=request.files["file"]
+        patient_id=request.form.get("patient_id")
+        doctor_id=request.form.get("doctor_id")
+
+        # Obtener el nombre del paciente y del doctor por su ID
+        patient = db_patient.find_one({'_id': patient_id})
+        doctor = db_user.find_one({'_id': doctor_id})
+
         mongo.save_file(eeg_file.filename, eeg_file)
         id = db_medias.insert_one({
-            'requester_name':request.form.get("requester_name"),
-            'performer_name':request.form.get("performer_name"),
+            'patient_name':patient['name'],
+            'doctor_name':doctor['name'],
             'file_name':eeg_file.filename
         })
         return jsonify(str(id.inserted_id))
@@ -144,11 +292,36 @@ def getFile(id):
         # Leer los datos de los canales seleccionados
         data, times = raw[picks]
 
-        print(len(data[0]))
-        
+        data=data.tolist()
+        print(len(data))
+        #print(data.tolist())
         #print(egg_file_bytes)
         #print(raw.ch_names)
-        return "done :D"
+        return jsonify({
+            'data 1':data[0],         
+            'data 2':data[1],        
+            'data 3':data[2],         
+            'data 4':data[3],         
+            'data 5':data[4],         
+            'data 6':data[5],         
+            'data 7':data[6],         
+            'data 8':data[7],         
+            'data 9':data[8],         
+            'data 10':data[9],         
+            'data 11':data[10],         
+            'data 12':data[11],         
+            'data 13':data[12],         
+            'data 14':data[13],         
+            'data 15':data[14],         
+            'data 16':data[15],         
+            'data 17':data[16],         
+            'data 18':data[17],         
+            'data 19':data[18],         
+            'data 20':data[19],         
+            'data 21':data[20],         
+            'data 22':data[21],         
+            'data 23':data[22]         
+        })
     else:
         return "Archivo no encontrado", 404
 
@@ -216,7 +389,7 @@ def getPredict(id):
                 if(model.predict(registros_3600_segundos[f"Segundo_{t}"][c])==0):
                     aux+=1
             if(aux>12):
-                lst_seg_ictal+=[(t,t+1)]
+                lst_seg_ictal+=[[t,t+1]]
         #print(egg_file_bytes)
         #print(raw.ch_names)
         return "done :D"
