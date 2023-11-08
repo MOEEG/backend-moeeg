@@ -4,11 +4,15 @@ from flask import Flask, request, jsonify, url_for
 from flask_pymongo import PyMongo, ObjectId
 from flask_cors import CORS
 from io import BytesIO
+from keras.models import load_model
+from joblib import dump, loads
+import numpy as np
 import os
 import mne
+from tqdm import tqdm
 
 app = Flask(__name__)
-##app.config['MONGO_URI']='mongodb://18.117.105.88/moeegdb'
+##app.config['MONGO_URI']='mongodb://18.218.20.150/moeegdb'
 app.config['MONGO_URI']='mongodb://localhost/moeegdb'
 #La conexión
 mongo = PyMongo(app)
@@ -212,6 +216,8 @@ def getFile(id):
     # Obtén el eeg_file que contiene la imagen por su identificador
     eeg_file = mongo.db.fs.files.find_one({'_id': ObjectId(id)})
 
+    #Cargar modelo
+
     if eeg_file:
         # Recupera los fragmentos de la imagen desde GridFS
         chunks = mongo.db.fs.chunks.find({'files_id': ObjectId(id)}).sort('n')
@@ -245,35 +251,73 @@ def getFile(id):
         # Leer los datos de los canales seleccionados
         data, times = raw[picks]
 
+        # Creamos un diccionario vacío para almacenar los registros EEG de los pacientes
+        registros_3600_segundos = {}
+
+        print(data)
+        for t in tqdm(range(3600), desc="Procesando Parte 1"):
+            registro_paciente = {}
+            for c in range(len(raw.ch_names)):
+                fig=raw.get_data(picks=c,start=t*256, stop=(t+1)*256)
+                if (sum(fig[0])!=0): 
+                    registro_paciente[c] = fig[0]
+            registros_3600_segundos[f"Segundo_{t}"] = registro_paciente
+        
+        model = load_model('DWT_model_the_best.h5')
+        ss=load('std_scaler.bin')
+        
+        lst_seg_ictal=[]
+        for t in tqdm(range(3600), desc="Procesando Parte 2"):
+            aux=0
+            for c in range(len(raw.ch_names)):
+                #print(registros_3600_segundos[f"Segundo_{t}"][c])
+                #print(registros_3600_segundos[f"Segundo_{t}"][c].shape)
+                #print('###############################')
+                a=ss.transform(np.array(registros_3600_segundos[f"Segundo_{t}"][c]).reshape(1, 256))
+                #print(a)
+                #print(a.shape)
+                #print('###############################')
+                a=np.array(a).reshape(1, 256, 1)
+                #print(a)
+                #print(a.shape)
+                #print('###############################')
+                if(np.round(np.array(model.predict(a,verbose=0)))==0):
+                    aux+=1
+            if(aux>12):
+                lst_seg_ictal+=[[t,t+1]]
+        #print(egg_file_bytes)
+        #print(raw.ch_names)
+
         data=data.tolist()
-        print(len(data))
+        #print(len(data))
         #print(data.tolist())
         #print(egg_file_bytes)
         #print(raw.ch_names)
         return jsonify({
-            'data 1':data[0],         
-            'data 2':data[1],        
-            'data 3':data[2],         
-            'data 4':data[3],         
-            'data 5':data[4],         
-            'data 6':data[5],         
-            'data 7':data[6],         
-            'data 8':data[7],         
-            'data 9':data[8],         
-            'data 10':data[9],         
-            'data 11':data[10],         
-            'data 12':data[11],         
-            'data 13':data[12],         
-            'data 14':data[13],         
-            'data 15':data[14],         
-            'data 16':data[15],         
-            'data 17':data[16],         
-            'data 18':data[17],         
-            'data 19':data[18],         
-            'data 20':data[19],         
-            'data 21':data[20],         
-            'data 22':data[21],         
-            'data 23':data[22]         
+            #'data 1':data[0],         
+            #'data 2':data[1],        
+            #'data 3':data[2],         
+            #'data 4':data[3],         
+            #'data 5':data[4],         
+            #'data 6':data[5],         
+            #'data 7':data[6],         
+            #'data 8':data[7],         
+            #'data 9':data[8],         
+            #'data 10':data[9],         
+            #'data 11':data[10],         
+            #'data 12':data[11],         
+            #'data 13':data[12],         
+            #'data 14':data[13],         
+            #'data 15':data[14],         
+            #'data 16':data[15],         
+            #'data 17':data[16],         
+            #'data 18':data[17],         
+            #'data 19':data[18],         
+            #'data 20':data[19],         
+            #'data 21':data[20],         
+            #'data 22':data[21],         
+            #'data 23':data[22],
+            'time':lst_seg_ictal         
         })
     else:
         return "Archivo no encontrado", 404
@@ -289,6 +333,9 @@ def getFile(id):
 def getPredict(id):
     # Obtén el eeg_file que contiene la imagen por su identificador
     eeg_file = mongo.db.fs.files.find_one({'_id': ObjectId(id)})
+    
+    #Cargar modelo
+    model = load_model('src\DWT_model_best.h5')
 
     if eeg_file:
         # Recupera los fragmentos de la imagen desde GridFS
@@ -339,7 +386,7 @@ def getPredict(id):
         for t in range(3600):
             aux=0
             for c in range(len(raw.ch_names)):
-                if(model.predict(registros_3600_segundos[f"Segundo_{t}"][c])==0):
+                if(np.round(model.predict(registros_3600_segundos[f"Segundo_{t}"][c]))==0):
                     aux+=1
             if(aux>12):
                 lst_seg_ictal+=[[t,t+1]]
