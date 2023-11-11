@@ -194,9 +194,9 @@ db_observation = mongo.db.observations
 def createObservations():
     try:
         #aca quizás se necesite cambiar a string(patient_id) en la fila 205
-        patient_id=request.json['_id']
-        doctor_id=request.json['_id']
-        media_id=request.json['_id']
+        patient_id=request.json['patient_id']
+        doctor_id=request.json['doctor_id']
+        media_id=request.json['media_id']
         
 
         # Obtener el nombre del paciente,el doctor y el nombre del archivo por su ID
