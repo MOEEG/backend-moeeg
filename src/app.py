@@ -5,8 +5,11 @@ from flask_pymongo import PyMongo, ObjectId
 from flask_cors import CORS
 from io import BytesIO
 from keras.models import load_model
-from joblib import dump, loads
+import pandas as pd
+from joblib import dump, load
+import dwt
 import numpy as np
+import channels 
 import os
 import mne
 from tqdm import tqdm
@@ -118,6 +121,7 @@ def createPatients():
     })
     return jsonify(str(id.inserted_id))
 
+
 @app.route('/patients', methods= ['GET'])
 def getPatients():
     patients = []
@@ -177,30 +181,31 @@ def updatePatient(id):
 
 
 
-
-
-
 ##################################
-####### Registrar Archivo ########
+##### Registrar Observación ######
 ##################################
 #Upload and Retrieve File AWS Mongo
 
 #Definición de colección de media
-db_medias = mongo.db.medias
 
-@app.route('/medias', methods=['POST'])
-def createMedia():
+
+
+db_observations = mongo.db.observations
+
+@app.route('/Observations', methods=['POST'])
+def createObservations():
     try:
         eeg_file=request.files["file"]
-        patient_id=request.form.get("patient_id")
-        doctor_id=request.form.get("doctor_id")
+        patient_id=request.form.get(str(("patient_id")))
+        doctor_id=request.form.get(str(("doctor_id")))
+        print(patient_id,doctor_id)
 
         # Obtener el nombre del paciente y del doctor por su ID
-        patient = db_patient.find_one({'_id': patient_id})
-        doctor = db_user.find_one({'_id': doctor_id})
-
+        patient = db_patient.find_one({'_id': ObjectId(patient_id)})
+        doctor = db_user.find_one({'_id':  ObjectId(doctor_id)})
+        print(patient,doctor)
         mongo.save_file(eeg_file.filename, eeg_file)
-        id = db_medias.insert_one({
+        id = db_observations.insert_one({
             'patient_name':patient['name'],
             'doctor_name':doctor['name'],
             'file_name':eeg_file.filename
@@ -208,6 +213,181 @@ def createMedia():
         return jsonify(str(id.inserted_id))
     except Exception as e:
         print(e)
+
+##################################
+####### Registrar Archivo ########
+##################################
+#Upload and Retrieve File AWS Mongo
+
+#Definición de colección de media
+
+db_medias = mongo.db.medias
+
+@app.route('/medias', methods=['POST'])
+def createMedia():
+    #try:    
+    
+    eeg_file=request.files["file"]
+
+    mongo.save_file(eeg_file.filename, eeg_file)
+    
+    eeg_file = mongo.db.fs.files.find_one({'filename': eeg_file.filename})
+
+    #Cargar modelo
+    #print(next(iter(eeg_file.values())))
+    if eeg_file:
+        # Recupera los fragmentos de la imagen desde GridFS
+        chunks = mongo.db.fs.chunks.find({'files_id': ObjectId(next(iter(eeg_file.values())))}).sort('n')
+        
+        egg_file_bytes = b''
+        
+        for chunk in chunks:
+            egg_file_bytes += chunk['data']
+
+        egg_bytes=BytesIO(egg_file_bytes)
+
+        ruta_archivo='archivo.edf'
+
+        with open(ruta_archivo, 'wb') as file:
+            file.write(egg_bytes.getbuffer())
+    
+        #Cargar modelo
+    
+        if ruta_archivo:
+            b=channels.b()
+            raw = mne.io.read_raw_edf(ruta_archivo, preload=True)
+
+            if os.path.exists(ruta_archivo):
+                # Eliminar el archivo
+                os.remove(ruta_archivo)
+                print(f"Archivo {ruta_archivo} eliminado correctamente.")
+            else:
+                print(f"El archivo {ruta_archivo} no existe o ya ha sido eliminado.")
+
+            count=0
+
+            for i in raw.ch_names:
+              if i in b:
+                count+=1
+
+            if count==23:
+              lst_seg_ictal=[]
+
+              df = pd.DataFrame(columns= ['Coeficiente_' + str(i) for i in range(256+1)])
+
+              ss=load('std_scaler.bin')
+
+              model = load_model('DWT_prime_model.h5')
+
+              for t in tqdm(range(3600), desc="Procesando Parte 1"):
+                  df_copy=df
+                  #registro_paciente = {}
+                  for c in (raw.ch_names):
+                    if (c in b):
+                      fig=raw.get_data(picks=raw.ch_names.index(c),start=t*256, stop=(t+1)*256)
+                      if (sum(fig[0])!=0): 
+                          #registro_paciente[c] = fig[0]
+                          array = dwt.wavelet_denoising(fig[0], wavelet="db18", level=1)
+                          array = np.insert(array, 0,b.index(c))
+                          #print(b.index(c))
+                          new_row = pd.Series(array.flatten(), index=df_copy.columns)
+                          df_copy = pd.concat([df_copy, new_row.to_frame().T], ignore_index=True)
+
+                  X=np.array(df_copy)
+                  #print(X.shape)
+
+                  data_reshaped = X.reshape((X.shape[0]*X.shape[1]))
+
+                  data_scaled=ss.transform(data_reshaped.reshape(1, -1))
+
+                  X_norm = data_scaled.reshape(X.shape)
+
+                  y_predic = np.round(model.predict(X_norm.reshape(1, X.shape[0], X.shape[1]),verbose=0))
+
+                  if(y_predic==0):
+                    lst_seg_ictal+=[[t,t+1]]
+    
+
+            #eeg_file=request.files["file"]
+
+            #mongo.save_file(eeg_file.filename, eeg_file)
+
+            #data=raw.get_data(start=0, stop=921600)
+            #data=data.tolist()
+            
+
+            #print(eeg_file['filename'])
+            #print("##############################################")
+            #print("##############################################")
+            #print("##############################################")
+            #print("##############################################")
+            ##print(data)
+            #print("##############################################")
+            #print("##############################################")
+            #print("##############################################")
+            #print("##############################################")
+            #print(lst_seg_ictal)
+
+            id = db_medias.insert_one({
+                'file_name':eeg_file['filename'],
+                'time':lst_seg_ictal 
+                #'1':raw.get_data(   picks=raw.ch_names.index('FP1-F7')).tolist(),  
+                #'2':raw.get_data(   picks=raw.ch_names.index('F7-T7')).tolist(), 
+                #'3':raw.get_data(   picks=raw.ch_names.index('T7-P7')).tolist(),
+                #'4':raw.get_data(   picks=raw.ch_names.index('P7-O1')).tolist(),
+                #'5':raw.get_data(   picks=raw.ch_names.index('FP1-F3')).tolist(), 
+                #'6':raw.get_data(   picks=raw.ch_names.index('F3-C3')).tolist(),
+                #'7':raw.get_data(   picks=raw.ch_names.index('C3-P3')).tolist(),
+                #'8':raw.get_data(   picks=raw.ch_names.index('P3-O1')).tolist(),
+                #'9':raw.get_data(   picks=raw.ch_names.index('FZ-CZ')).tolist(),
+                #'10':raw.get_data(  picks=raw.ch_names.index('CZ-PZ')).tolist(),
+                #'11':raw.get_data(  picks=raw.ch_names.index('FP2-F4')).tolist(), 
+                #'12':raw.get_data(  picks=raw.ch_names.index('F4-C4')).tolist(),
+                #'13':raw.get_data(  picks=raw.ch_names.index('C4-P4')).tolist(),
+                #'14':raw.get_data(  picks=raw.ch_names.index('P4-O2')).tolist(),
+                #'15':raw.get_data(  picks=raw.ch_names.index('FP2-F8')).tolist(), 
+                #'16':raw.get_data(  picks=raw.ch_names.index('F8-T8')).tolist(),
+                #'17':raw.get_data(  picks=raw.ch_names.index('T8-P8-0')).tolist(),  
+                #'18':raw.get_data(  picks=raw.ch_names.index('P8-O2')).tolist(),
+                #'19':raw.get_data(  picks=raw.ch_names.index('P7-T7')).tolist(),
+                #'20':raw.get_data(  picks=raw.ch_names.index('T7-FT9')).tolist(), 
+                #'21':raw.get_data(  picks=raw.ch_names.index('FT9-FT10')).tolist(),   
+                #'22':raw.get_data(  picks=raw.ch_names.index('FT10-T8')).tolist(),  
+                #'23':raw.get_data(  picks=raw.ch_names.index('T8-P8-1')).tolist(),   
+            })
+            return jsonify(str(id.inserted_id))
+        else:
+            return "Archivo no encontrado", 404
+    #except Exception as e:
+    #    return jsonify({"error": str(e)})
+
+@app.route('/medias', methods= ['GET'])
+def getMedias():
+    medias = []
+    for med in db_medias.find():
+        medias.append({
+            "_id": str(ObjectId(med['_id'])),
+            'file_name':str(med["file_name"]),
+            'time':str(med["time"])      
+        })
+    return jsonify(medias)
+
+@app.route('/medias/<id>', methods= ['GET'])
+def getMedia(id):
+    media=db_medias.find_one({'_id':ObjectId(id)})
+    return jsonify({
+        "_id": str(ObjectId(media['_id'])),
+        'name':media["file_name"],
+        'dni':media["time"]           
+    })
+
+@app.route('/medias/<id>', methods= ['DELETE'])
+def deleteMedia(id):
+    media = db_medias.delete_one({"_id":ObjectId(id)})
+    return jsonify({
+        "msg": "media deleted",
+        "media": id
+        })
 
 # Del archivo que hemos alamcenado obtenemos el array, 
 # falta configurar para que devuelva en un json los 23 canales 
@@ -264,7 +444,7 @@ def getFile(id):
             registros_3600_segundos[f"Segundo_{t}"] = registro_paciente
         
         model = load_model('DWT_model_the_best.h5')
-        ss=load('std_scaler.bin')
+        #ss=load('std_scaler.bin')
         
         lst_seg_ictal=[]
         for t in tqdm(range(3600), desc="Procesando Parte 2"):
