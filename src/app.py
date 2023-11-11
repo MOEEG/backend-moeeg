@@ -188,31 +188,76 @@ def updatePatient(id):
 
 #Definición de colección de media
 
-
-
-db_observations = mongo.db.observations
+db_observation = mongo.db.observations
 
 @app.route('/Observations', methods=['POST'])
 def createObservations():
     try:
-        eeg_file=request.files["file"]
-        patient_id=request.form.get(str(("patient_id")))
-        doctor_id=request.form.get(str(("doctor_id")))
-        print(patient_id,doctor_id)
+        #aca quizás se necesite cambiar a string(patient_id) en la fila 205
+        patient_id=request.json['_id']
+        doctor_id=request.json['_id']
+        media_id=request.json['_id']
+        
 
-        # Obtener el nombre del paciente y del doctor por su ID
+        # Obtener el nombre del paciente,el doctor y el nombre del archivo por su ID
         patient = db_patient.find_one({'_id': ObjectId(patient_id)})
         doctor = db_user.find_one({'_id':  ObjectId(doctor_id)})
+        media = db_media.find_one({'_id': ObjectId(media_id)})
+        
+        
         print(patient,doctor)
-        mongo.save_file(eeg_file.filename, eeg_file)
-        id = db_observations.insert_one({
+        id = db_observation.insert_one({
             'patient_name':patient['name'],
             'doctor_name':doctor['name'],
-            'file_name':eeg_file.filename
+            'file_name':media['filename']
         })
         return jsonify(str(id.inserted_id))
     except Exception as e:
         print(e)
+
+@app.route('/observations', methods= ['GET'])
+def getObservatios():
+    observations = []
+    for med in db_observation.find():
+        observations.append({
+            "_id": str(ObjectId(med['_id'])),
+            'patient_name':str(med['patient_name']),
+            'doctor_name':str(med['doctor_name']),      
+            'file_name':str(med['file_name'])      
+        })
+    return jsonify(observations)
+
+@app.route('/observations/<id>', methods= ['GET'])
+def getObservation(id):
+    observation=db_observation.find_one({'_id':ObjectId(id)})
+    return jsonify({
+        "_id": str(ObjectId(observation['_id'])),
+        'patient_name':observation["patient_name"],
+        'doctor_name':observation["doctor_name"],           
+        'file_name':observation['file_name']     
+    })
+
+@app.route('/observations/<id>', methods= ['DELETE'])
+def deleteObservation(id):
+    observation = db_observation.delete_one({"_id":ObjectId(id)})
+    return jsonify({
+        "msg": "observation deleted",
+        "observation": id
+        })
+
+@app.route('/observations/<id>', methods= ['PUT'])
+def updateObservation(id):
+    db_observation.update_one({"_id":ObjectId(id)},{'$set':{
+        'patient_name':request.json["patient_name"],
+        'doctor_name':request.json["doctor_name"],
+        'file_name':request.json["file_name"],
+    }})
+    return jsonify({
+        "msg": "Observation updated",
+        "observation": id
+        })
+
+
 
 ##################################
 ####### Registrar Archivo ########
@@ -221,7 +266,7 @@ def createObservations():
 
 #Definición de colección de media
 
-db_medias = mongo.db.medias
+db_media = mongo.db.medias
 
 @app.route('/medias', methods=['POST'])
 def createMedia():
@@ -328,7 +373,7 @@ def createMedia():
             #print("##############################################")
             #print(lst_seg_ictal)
 
-            id = db_medias.insert_one({
+            id = db_media.insert_one({
                 'file_name':eeg_file['filename'],
                 'time':lst_seg_ictal 
                 #'1':raw.get_data(   picks=raw.ch_names.index('FP1-F7')).tolist(),  
@@ -364,7 +409,7 @@ def createMedia():
 @app.route('/medias', methods= ['GET'])
 def getMedias():
     medias = []
-    for med in db_medias.find():
+    for med in db_media.find():
         medias.append({
             "_id": str(ObjectId(med['_id'])),
             'file_name':str(med["file_name"]),
@@ -374,20 +419,24 @@ def getMedias():
 
 @app.route('/medias/<id>', methods= ['GET'])
 def getMedia(id):
-    media=db_medias.find_one({'_id':ObjectId(id)})
+    media=db_media.find_one({'_id':ObjectId(id)})
     return jsonify({
         "_id": str(ObjectId(media['_id'])),
         'name':media["file_name"],
         'dni':media["time"]           
     })
-
+#AQUI FALTA BORRO DE fs.CHUNK Y fs.FILES
 @app.route('/medias/<id>', methods= ['DELETE'])
 def deleteMedia(id):
-    media = db_medias.delete_one({"_id":ObjectId(id)})
+    media = db_media.delete_one({"_id":ObjectId(id)})
     return jsonify({
         "msg": "media deleted",
         "media": id
         })
+
+
+
+
 
 # Del archivo que hemos alamcenado obtenemos el array, 
 # falta configurar para que devuelva en un json los 23 canales 
