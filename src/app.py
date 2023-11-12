@@ -190,33 +190,48 @@ def updatePatient(id):
 
 db_observation = mongo.db.observations
 
-@app.route('/Observations', methods=['POST'])
-def createObservations():
+@app.route('/observations', methods=['POST'])
+def createObservation():
     try:
         #aca quizás se necesite cambiar a string(patient_id) en la fila 205
         patient_id=request.json['patient_id']
         doctor_id=request.json['doctor_id']
         media_id=request.json['media_id']
+        print('#############################')
+        print('#############################')
+        print('#############################')
         
+        print(patient_id)
+        print(doctor_id)
+        print(media_id)
+        print('#############################')
+        print('#############################')
+        print('#############################')
 
         # Obtener el nombre del paciente,el doctor y el nombre del archivo por su ID
         patient = db_patient.find_one({'_id': ObjectId(patient_id)})
         doctor = db_user.find_one({'_id':  ObjectId(doctor_id)})
         media = db_media.find_one({'_id': ObjectId(media_id)})
         
-        
-        print(patient,doctor)
+        print('#############################')
+        print('#############################')
+        print(patient)
+        print(doctor)
+        print(media)   
+        print('#############################')
+        print('#############################')
+
         id = db_observation.insert_one({
-            'patient_name':patient['name'],
-            'doctor_name':doctor['name'],
-            'file_name':media['filename']
+            'patient_name':patient['name'], 
+            'doctor_name':doctor['name'],  
+            'file_name':media['file_name']  
         })
         return jsonify(str(id.inserted_id))
     except Exception as e:
-        print(e)
+        return e
 
 @app.route('/observations', methods= ['GET'])
-def getObservatios():
+def getObservations():
     observations = []
     for med in db_observation.find():
         observations.append({
@@ -247,10 +262,20 @@ def deleteObservation(id):
 
 @app.route('/observations/<id>', methods= ['PUT'])
 def updateObservation(id):
+    #aca quizás se necesite cambiar a string(patient_id) en la fila 205
+    patient_id=request.json['patient_id']
+    doctor_id=request.json['doctor_id']
+    media_id=request.json['media_id']
+    
+    #Obtener el nombre del paciente,el doctor y el nombre del archivo por su ID
+    patient = db_patient.find_one({'_id': ObjectId(patient_id)})
+    doctor = db_user.find_one({'_id':  ObjectId(doctor_id)})
+    media = db_media.find_one({'_id': ObjectId(media_id)})
+    
     db_observation.update_one({"_id":ObjectId(id)},{'$set':{
-        'patient_name':request.json["patient_name"],
-        'doctor_name':request.json["doctor_name"],
-        'file_name':request.json["file_name"],
+        'patient_name':patient['name'],
+        'doctor_name':doctor['name'],  
+        'file_name':media['file_name']  
     }})
     return jsonify({
         "msg": "Observation updated",
@@ -271,8 +296,11 @@ db_media = mongo.db.medias
 @app.route('/medias', methods=['POST'])
 def createMedia():
     #try:    
-    
     eeg_file=request.files["file"]
+
+    if "medias" in mongo.db.list_collection_names():
+        if db_media.find_one({'file_name': eeg_file.filename}):
+            return "Archivo ya existe"
 
     mongo.save_file(eeg_file.filename, eeg_file)
     
@@ -422,19 +450,116 @@ def getMedia(id):
     media=db_media.find_one({'_id':ObjectId(id)})
     return jsonify({
         "_id": str(ObjectId(media['_id'])),
-        'name':media["file_name"],
-        'dni':media["time"]           
+        'file_name':media["file_name"],
+        'time':media["time"]           
     })
-#AQUI FALTA BORRO DE fs.CHUNK Y fs.FILES
+
 @app.route('/medias/<id>', methods= ['DELETE'])
 def deleteMedia(id):
-    media = db_media.delete_one({"_id":ObjectId(id)})
+    media = db_media.find_one({'_id':ObjectId(id)})
+    file = mongo.db.fs.files.find_one({'filename': media['file_name']})
+    _ = db_media.delete_one({"_id":ObjectId(id)})
+    _ = mongo.db.fs.files.delete_one({"_id":ObjectId(file['_id'])})
+    _ = mongo.db.fs.chunks.delete_many({"files_id":ObjectId(file['_id'])})
+    # for chunk in chunks:
+        # _ = mongo.db.fs.chunks.delete_one({"_id":ObjectId(chunk['_id'])})
     return jsonify({
         "msg": "media deleted",
         "media": id
         })
 
+###################################
+###### Registrar Resultados #######
+###################################
 
+#Definición de colección de results
+
+db_result = mongo.db.results
+
+@app.route('/results', methods=['POST'])
+def createResult():
+    try:
+        #aca quizás se necesite cambiar a string(patient_id) en la fila 205
+        observation_id=request.json['observation_id']
+        print("########################")
+        print("########################")
+        print(observation_id)
+        observation = db_observation.find_one({'_id':ObjectId(observation_id)})
+        print(observation)
+        media = db_media.find_one({'file_name':observation['file_name']})
+        print("########################")
+        print("########################")
+        print(media)
+        print("########################")
+        print("########################")
+        print(observation['patient_name'])
+        print("########################")
+        print("########################")
+        print(observation['doctor_name'])
+        print("########################")
+        print("########################")
+        print(media['time'])
+        print("########################")
+        print("########################")
+
+        id = db_result.insert_one({
+            'patient_name':observation['patient_name'], 
+            'doctor_name':observation['doctor_name'],  
+            'ictal_time':media['time']  
+        })
+        return jsonify(str(id.inserted_id))
+    except Exception as e:
+        return e
+
+@app.route('/results', methods= ['GET'])
+def getResults():
+    results = []
+    for res in db_result.find():
+        results.append({
+            "_id": str(ObjectId(res['_id'])),
+            'patient_name':str(res['patient_name']),
+            'doctor_name':str(res['doctor_name']),      
+            'ictal_time':str(res['ictal_time'])      
+        })
+    return jsonify(results)
+
+@app.route('/results/<id>', methods= ['GET'])
+def getResult(id):
+    result=db_result.find_one({'_id':ObjectId(id)})
+    return jsonify({
+        "_id": str(ObjectId(result['_id'])),
+        'patient_name':result["patient_name"],
+        'doctor_name':result["doctor_name"],           
+        'ictal_time':result['ictal_time']     
+    })
+
+@app.route('/results/<id>', methods= ['DELETE'])
+def deleteResult(id):
+    result = db_result.delete_one({"_id":ObjectId(id)})
+    return jsonify({
+        "msg": "result deleted",
+        "result": id
+        })
+
+@app.route('/results/<id>', methods= ['PUT'])
+def updateResult(id):
+    #aca quizás se necesite cambiar a string(patient_id) en la fila 205
+    observation_id=request.json['observation_id']
+    print("########################")
+    print("########################")
+    print(observation_id)
+    observation = db_observation.find_one({'_id':ObjectId(observation_id)})
+    print(observation)
+    media = db_media.find_one({'file_name':observation['file_name']})
+    
+    
+    db_result.update_one({"_id":ObjectId(id)},{'$set':{
+        'ictal_time':media['time']  
+    }})
+    return jsonify({
+        "msg": "Result updated",
+        "result": id
+        })
 
 
 
