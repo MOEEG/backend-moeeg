@@ -546,7 +546,6 @@ def updateResult(id):
     #aca quizás se necesite cambiar a string(patient_id) en la fila 205
     observation_id=request.json['observation_id']
     print("########################")
-    print("########################")
     print(observation_id)
     observation = db_observation.find_one({'_id':ObjectId(observation_id)})
     print(observation)
