@@ -1,6 +1,6 @@
 #Request se encarga de recepcionar los datos 
 #que el cliente lo podría estar enviando a la pagina
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_pymongo import PyMongo, ObjectId
 from flask_cors import CORS
 from io import BytesIO
@@ -13,86 +13,164 @@ import channels
 import os
 import mne
 from tqdm import tqdm
+from flask_bcrypt import Bcrypt
+from secrets import token_hex
 
 app = Flask(__name__)
 ##app.config['MONGO_URI']='mongodb://18.218.20.150/moeegdb'
 app.config['MONGO_URI']='mongodb://localhost/moeegdb'
+app.config['SECRET_KEY'] = token_hex(16)
 #La conexión
 mongo = PyMongo(app)
+bcrypt = Bcrypt(app)
 
 # Settings
 CORS(app)
 
-#Definición de colección de usuarios
+####################################
+######### Registrar Doctor #########
+####################################
 db_user = mongo.db.users
+
+@app.route('/register', methods=['POST'])
+def register():
+    existing_user = db_user.find_one({'username': request.json["dni"]})
+
+    if existing_user is None:
+        hashed_password = bcrypt.generate_password_hash(request.json["dni"]).decode('utf-8')
+        db_user.insert_one({
+            'username': request.json["dni"],
+            'name':request.json["name"], 
+            'dni':request.json["dni"],
+            'email':request.json["email"],
+            'password': hashed_password,
+            'phone':request.json["phone"],
+            'age':request.json["age"]
+            })
+        return jsonify({'message': 'User registered successfully'}), 201
+    else:
+        return jsonify({'message': 'Username already exists'}), 409
+
+
+# Ruta para el login de usuarios
+@app.route('/login', methods=['POST'])
+def login():
+    print(request.json['username'])
+    print(request.json['password'])
+    login_user = db_user.find_one({'username': request.json['username']})
+    print(login_user)
+    print(login_user['password'])
+    print(request.json['password'])
+    print(bcrypt.check_password_hash(login_user['password'], request.json['password']))
+    if login_user and bcrypt.check_password_hash(login_user['password'], request.json['password']):
+        print('###################')
+        session['username'] = request.json['username']
+        return jsonify({'message': 'Login successful'}), 200
+    else:
+        return jsonify({'message': 'Invalid username or password'}), 401
+
+# Ruta para el logout de usuarios
+@app.route('/logout', methods=['GET'])
+def logout():
+    session.pop('username', None)
+    return jsonify({'message': 'Logout successful'}), 200
+
+# Ruta para verificar el estado del usuario actual
+@app.route('/user', methods=['GET'])
+def get_user():
+    if 'username' in session:
+        print(session['username'])
+        return jsonify({'username': session['username']}), 200
+    else:
+        return jsonify({'message': 'User not logged in'}), 401
+
+@app.route('/update-password', methods=['PUT'])
+def update_password():
+    print(session['username'])
+    
+    if 'username' in session:
+        current_user = db_user.find_one({'username': session['username']})
+        print(session['username'])
+        if current_user and bcrypt.check_password_hash(current_user['password'], request.json['current_password']):
+            new_password = bcrypt.generate_password_hash(request.json['new_password']).decode('utf-8')
+            db_user.update_one({'_id': current_user['_id']}, {'$set': {'password': new_password}})
+            return jsonify({'message': 'Password updated successfully'}), 200
+        else:
+            return jsonify({'message': 'Current password is incorrect'}), 401
+    else:
+        return jsonify({'message': 'User not logged in'}), 401
 
 ###################################
 ######## Registrar Doctor ########
 ###################################
-@app.route('/users', methods= ['POST'])
-def createUsers():
-    #imprime los datos que el cliente te está enviando
-    #print(request.json)
-    id = db_user.insert_one({
-        'name':request.json["name"],
-        'dni':request.json["dni"],
-        'email':request.json["email"],
-        'password':request.json["password"],
-        'phone':request.json["phone"],
-        'age':request.json["age"]
-    })
-    return jsonify(str(id.inserted_id))
 
-@app.route('/users', methods= ['GET'])
-def getUsers():
-    users = []
-    for doc in db_user.find():
-        users.append({
-            "_id": str(ObjectId(doc['_id'])),
-            'name':str(doc["name"]),
-            'dni':str(doc["dni"]),
-            'email':str(doc["email"]),
-            'password':str(doc["password"]),
-            'phone':str(doc["phone"]),
-            'age':str(doc["age"])        
-        })
-    return jsonify(users)
 
-@app.route('/users/<id>', methods= ['GET'])
-def getUser(id):
-    user=db_user.find_one({'_id':ObjectId(id)})
-    return jsonify({
-        "_id": str(ObjectId(user['_id'])),
-        'name':user["name"],
-        'dni':user["dni"],
-        'email':user["email"],
-        'password':user["password"],
-        'phone':user["phone"],
-        'age':user["age"]                
-    })
+#Definición de colección de usuarios
+#db_user = mongo.db.users
+#@app.route('/users', methods= ['POST'])
+#def createUsers():
+#    #imprime los datos que el cliente te está enviando
+#    #print(request.json)
+#    id = db_user.insert_one({
+#        'name':request.json["name"],
+#        'dni':request.json["dni"],
+#        'email':request.json["email"],
+#        'password':request.json["password"],
+#        'phone':request.json["phone"],
+#        'age':request.json["age"]
+#    })
+#    return jsonify(str(id.inserted_id))
 
-@app.route('/users/<id>', methods= ['DELETE'])
-def deleteUser(id):
-    user = db_user.delete_one({"_id":ObjectId(id)})
-    return jsonify({
-        "msg": "User deleted",
-        "user": id
-        })
+#@app.route('/users', methods= ['GET'])
+#def getUsers():
+#    users = []
+#    for doc in db_user.find():
+#        users.append({
+#            "_id": str(ObjectId(doc['_id'])),
+#            'name':str(doc["name"]),
+#            'dni':str(doc["dni"]),
+#            'email':str(doc["email"]),
+#            'password':str(doc["password"]),
+#            'phone':str(doc["phone"]),
+#            'age':str(doc["age"])        
+#        })
+#    return jsonify(users)
 
-@app.route('/users/<id>', methods= ['PUT'])
-def updateUser(id):
-    db_user.update_one({"_id":ObjectId(id)},{'$set':{
-        'name':request.json["name"],
-        'dni':request.json["dni"],
-        'email':request.json["email"],
-        'password':request.json["password"],
-        'phone':request.json["phone"],
-        'age':request.json["age"]
-    }})
-    return jsonify({
-        "msg": "User updated",
-        "user": id
-        })
+#@app.route('/users/<id>', methods= ['GET'])
+#def getUser(id):
+#    user=db_user.find_one({'_id':ObjectId(id)})
+#    return jsonify({
+#        "_id": str(ObjectId(user['_id'])),
+#        'name':user["name"],
+#        'dni':user["dni"],
+#        'email':user["email"],
+#        'password':user["password"],
+#        'phone':user["phone"],
+#        'age':user["age"]                
+#    })
+
+#@app.route('/users/<id>', methods= ['DELETE'])
+#def deleteUser(id):
+#    user = db_user.delete_one({"_id":ObjectId(id)})
+#    return jsonify({
+#        "msg": "User deleted",
+#        "user": id
+#        })
+
+#@app.route('/users/<id>', methods= ['PUT'])
+#def updateUser(id):
+#    db_user.update_one({"_id":ObjectId(id)},{'$set':{
+#        'name':request.json["name"],
+#        'dni':request.json["dni"],
+#        'email':request.json["email"],
+#        'password':request.json["password"],
+#        'phone':request.json["phone"],
+#        'age':request.json["age"]
+#    }})
+#    return jsonify({
+#        "msg": "User updated",
+#        "user": id
+#        })
 
 
 
@@ -113,7 +191,6 @@ def createPatients():
         'name':request.json["name"],
         'dni':request.json["dni"],
         'email':request.json["email"],
-        'password':request.json["password"],
         'phone':request.json["phone"],
         'age':request.json["age"],
         'contact_name':request.json["contact_name"],
@@ -131,7 +208,6 @@ def getPatients():
             'name':str(pat["name"]),
             'dni':str(pat["dni"]),
             'email':str(pat["email"]),
-            'password':str(pat["password"]),
             'phone':str(pat["phone"]),
             'age':str(pat["age"]),        
             'contact_name':str(pat["contact_name"]),        
@@ -147,7 +223,6 @@ def getPatient(id):
         'name':patient["name"],
         'dni':patient["dni"],
         'email':patient["email"],
-        'password':patient["password"],
         'phone':patient["phone"],
         'age':patient["age"],
         'contact_name':patient["contact_name"],
@@ -168,7 +243,6 @@ def updatePatient(id):
         'name':request.json["name"],
         'dni':request.json["dni"],
         'email':request.json["email"],
-        'password':request.json["password"],
         'phone':request.json["phone"],
         'age':request.json["age"],
         'contact_name':request.json["contact_name"],
