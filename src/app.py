@@ -194,6 +194,11 @@ db_observation = mongo.db.observations
 def createObservation():
     try:
         #aca quizás se necesite cambiar a string(patient_id) en la fila 205
+        
+        ultima_observation = db_observation.find_one(sort=[("_id", -1)])
+        ultimo_correlativo = ultima_observation['_id'] if ultima_observation else 0
+
+
         patient_id=request.json['patient_id']
         doctor_id=request.json['doctor_id']
         media_id=request.json['media_id']
@@ -222,6 +227,8 @@ def createObservation():
         print('#############################')
 
         id = db_observation.insert_one({
+            '_id': ultimo_correlativo+1,
+            #'nro_observation': str('Nro_'+ultimo_correlativo),
             'patient_name':patient['name'], 
             'doctor_name':doctor['name'],  
             'file_name':media['file_name']  
@@ -235,7 +242,7 @@ def getObservations():
     observations = []
     for med in db_observation.find():
         observations.append({
-            "_id": str(ObjectId(med['_id'])),
+            "_id": int((med['_id'])),
             'patient_name':str(med['patient_name']),
             'doctor_name':str(med['doctor_name']),      
             'file_name':str(med['file_name'])      
@@ -244,9 +251,9 @@ def getObservations():
 
 @app.route('/observations/<id>', methods= ['GET'])
 def getObservation(id):
-    observation=db_observation.find_one({'_id':ObjectId(id)})
+    observation=db_observation.find_one({'_id':int(id)})
     return jsonify({
-        "_id": str(ObjectId(observation['_id'])),
+        "_id": str(str(observation['_id'])),
         'patient_name':observation["patient_name"],
         'doctor_name':observation["doctor_name"],           
         'file_name':observation['file_name']     
@@ -254,7 +261,7 @@ def getObservation(id):
 
 @app.route('/observations/<id>', methods= ['DELETE'])
 def deleteObservation(id):
-    observation = db_observation.delete_one({"_id":ObjectId(id)})
+    observation = db_observation.delete_one({"_id":int(id)})
     return jsonify({
         "msg": "observation deleted",
         "observation": id
@@ -272,7 +279,7 @@ def updateObservation(id):
     doctor = db_user.find_one({'_id':  ObjectId(doctor_id)})
     media = db_media.find_one({'_id': ObjectId(media_id)})
     
-    db_observation.update_one({"_id":ObjectId(id)},{'$set':{
+    db_observation.update_one({"_id":int(id)},{'$set':{
         'patient_name':patient['name'],
         'doctor_name':doctor['name'],  
         'file_name':media['file_name']  
@@ -479,12 +486,15 @@ db_result = mongo.db.results
 @app.route('/results', methods=['POST'])
 def createResult():
     try:
+        ultima_result = db_result.find_one(sort=[("_id", -1)])
+        ultimo_correlativo = ultima_result['_id'] if ultima_result else 0
+
         #aca quizás se necesite cambiar a string(patient_id) en la fila 205
         observation_id=request.json['observation_id']
         print("########################")
         print("########################")
         print(observation_id)
-        observation = db_observation.find_one({'_id':ObjectId(observation_id)})
+        observation = db_observation.find_one({'_id':int(observation_id)})
         print(observation)
         media = db_media.find_one({'file_name':observation['file_name']})
         print("########################")
@@ -501,8 +511,9 @@ def createResult():
         print(media['time'])
         print("########################")
         print("########################")
-
+        print(ultimo_correlativo)
         id = db_result.insert_one({
+            '_id': int(ultimo_correlativo)+1,
             'patient_name':observation['patient_name'], 
             'doctor_name':observation['doctor_name'],  
             'ictal_time':media['time']  
@@ -516,7 +527,7 @@ def getResults():
     results = []
     for res in db_result.find():
         results.append({
-            "_id": str(ObjectId(res['_id'])),
+            "_id": int(res['_id']),
             'patient_name':str(res['patient_name']),
             'doctor_name':str(res['doctor_name']),      
             'ictal_time':str(res['ictal_time'])      
@@ -525,9 +536,9 @@ def getResults():
 
 @app.route('/results/<id>', methods= ['GET'])
 def getResult(id):
-    result=db_result.find_one({'_id':ObjectId(id)})
+    result=db_result.find_one({'_id':int(id)})
     return jsonify({
-        "_id": str(ObjectId(result['_id'])),
+        "_id": (int(result['_id'])),
         'patient_name':result["patient_name"],
         'doctor_name':result["doctor_name"],           
         'ictal_time':result['ictal_time']     
@@ -535,7 +546,7 @@ def getResult(id):
 
 @app.route('/results/<id>', methods= ['DELETE'])
 def deleteResult(id):
-    result = db_result.delete_one({"_id":ObjectId(id)})
+    result = db_result.delete_one({"_id":int(id)})
     return jsonify({
         "msg": "result deleted",
         "result": id
@@ -547,12 +558,12 @@ def updateResult(id):
     observation_id=request.json['observation_id']
     print("########################")
     print(observation_id)
-    observation = db_observation.find_one({'_id':ObjectId(observation_id)})
+    observation = db_observation.find_one({'_id':int(observation_id)})
     print(observation)
     media = db_media.find_one({'file_name':observation['file_name']})
     
     
-    db_result.update_one({"_id":ObjectId(id)},{'$set':{
+    db_result.update_one({"_id":int(id)},{'$set':{
         'ictal_time':media['time']  
     }})
     return jsonify({
