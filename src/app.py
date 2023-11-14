@@ -433,7 +433,7 @@ def createMedia():
 
               model = load_model('DWT_prime_model.h5')
 
-              for t in tqdm(range(3600), desc="Procesando Parte 1"):
+              for t in tqdm(range(int(np.divide(raw.n_times,256))), desc="Procesando Predicción"):
                   df_copy=df
                   #registro_paciente = {}
                   for c in (raw.ch_names):
@@ -651,14 +651,17 @@ def updateResult(id):
 # falta configurar para que devuelva en un json los 23 canales 
 @app.route('/files/<id>', methods= ['GET'])
 def getFile(id):
+
+    media=db_media.find_one({'_id':ObjectId(id)})
+
     # Obtén el eeg_file que contiene la imagen por su identificador
-    eeg_file = mongo.db.fs.files.find_one({'_id': ObjectId(id)})
+    eeg_file = mongo.db.fs.files.find_one({'filename': (media['file_name'])})
 
     #Cargar modelo
 
     if eeg_file:
         # Recupera los fragmentos de la imagen desde GridFS
-        chunks = mongo.db.fs.chunks.find({'files_id': ObjectId(id)}).sort('n')
+        chunks = mongo.db.fs.chunks.find({'files_id': ObjectId(eeg_file['_id'])}).sort('n')
         
         egg_file_bytes = b''
         
@@ -680,52 +683,7 @@ def getFile(id):
         else:
             print(f"El archivo {ruta_archivo} no existe o ya ha sido eliminado.")
             
-        # Obtener información de los canales
-        info = raw.info
-
-        # Seleccionar solo los canales EEG
-        picks = mne.pick_types(info, eeg=True)
-
-        # Leer los datos de los canales seleccionados
-        data, times = raw[picks]
-
-        # Creamos un diccionario vacío para almacenar los registros EEG de los pacientes
-        registros_3600_segundos = {}
-
-        print(data)
-        for t in tqdm(range(3600), desc="Procesando Parte 1"):
-            registro_paciente = {}
-            for c in range(len(raw.ch_names)):
-                fig=raw.get_data(picks=c,start=t*256, stop=(t+1)*256)
-                if (sum(fig[0])!=0): 
-                    registro_paciente[c] = fig[0]
-            registros_3600_segundos[f"Segundo_{t}"] = registro_paciente
-        
-        model = load_model('DWT_model_the_best.h5')
-        #ss=load('std_scaler.bin')
-        
-        lst_seg_ictal=[]
-        for t in tqdm(range(3600), desc="Procesando Parte 2"):
-            aux=0
-            for c in range(len(raw.ch_names)):
-                #print(registros_3600_segundos[f"Segundo_{t}"][c])
-                #print(registros_3600_segundos[f"Segundo_{t}"][c].shape)
-                #print('###############################')
-                a=ss.transform(np.array(registros_3600_segundos[f"Segundo_{t}"][c]).reshape(1, 256))
-                #print(a)
-                #print(a.shape)
-                #print('###############################')
-                a=np.array(a).reshape(1, 256, 1)
-                #print(a)
-                #print(a.shape)
-                #print('###############################')
-                if(np.round(np.array(model.predict(a,verbose=0)))==0):
-                    aux+=1
-            if(aux>12):
-                lst_seg_ictal+=[[t,t+1]]
-        #print(egg_file_bytes)
-        #print(raw.ch_names)
-
+        data=raw.get_data()
         data=data.tolist()
         #print(len(data))
         #print(data.tolist())
@@ -755,7 +713,7 @@ def getFile(id):
             #'data 21':data[20],         
             #'data 22':data[21],         
             #'data 23':data[22],
-            'time':lst_seg_ictal         
+            'data':data         
         })
     else:
         return "Archivo no encontrado", 404
