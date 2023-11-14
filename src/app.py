@@ -15,6 +15,7 @@ import mne
 from tqdm import tqdm
 from flask_bcrypt import Bcrypt
 from secrets import token_hex
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 
 app = Flask(__name__)
 ##app.config['MONGO_URI']='mongodb://18.218.20.150/moeegdb'
@@ -23,6 +24,8 @@ app.config['SECRET_KEY'] = token_hex(16)
 #La conexión
 mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
+revoked_tokens = set()
 
 # Settings
 CORS(app)
@@ -64,30 +67,63 @@ def login():
     print(bcrypt.check_password_hash(login_user['password'], request.json['password']))
     if login_user and bcrypt.check_password_hash(login_user['password'], request.json['password']):
         print('###################')
-        session['username'] = request.json['username']
-        return jsonify({'message': 'Login successful'}), 200
+        print(login_user['username'])
+        access_token = create_access_token(identity=login_user['username'])
+        print(access_token)
+        #session['username'] = request.json['username']
+        #return jsonify({'message': 'Login successful'}), 200
+        return jsonify(access_token=access_token)
     else:
         return jsonify({'message': 'Invalid username or password'}), 401
 
 # Ruta para el logout de usuarios
-@app.route('/logout', methods=['GET'])
+@app.route('/logout', methods=['POST'])
+@jwt_required()
 def logout():
-    session.pop('username', None)
+    jti = get_jwt()['jti']
+    revoked_tokens.add(jti)
     return jsonify({'message': 'Logout successful'}), 200
 
 # Ruta para verificar el estado del usuario actual
-@app.route('/user', methods=['GET'])
+# @app.route('/user', methods=['GET'])
+# def get_user():
+#     if 'username' in session:
+#         return jsonify({'username': session['username']}), 200
+#     else:
+#         return jsonify({'message': 'User not logged in'}), 401
+
+@app.route('/get_user', methods=['GET'])
+@jwt_required()
 def get_user():
-    if 'username' in session:
-        print(session['username'])
-        return jsonify({'username': session['username']}), 200
+    print(get_jwt_identity())
+    current_user = get_jwt_identity()
+    user = db_user.find_one({'username': current_user}, {'password': 0})  # Excluir la contraseña en la respuesta
+    if user:
+        print(user)
+        return jsonify(
+            {
+        "username":user['username'],
+        "name":user['name'],
+        "dni":user['dni'],
+        "email":user['email'],
+        "phone":user['phone'],
+        "age":user['age']
+        }
+        ), 200
     else:
-        return jsonify({'message': 'User not logged in'}), 401
+        return jsonify({'message': 'User not found'}), 404
+
+@app.route('/protected', methods=['GET'])
+@jwt_required()
+def protected():
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200
 
 @app.route('/update-password', methods=['PUT'])
+@jwt_required()
 def update_password():
+    current_user_ = get_jwt_identity()
     print(session['username'])
-    
     if 'username' in session:
         current_user = db_user.find_one({'username': session['username']})
         print(session['username'])
@@ -184,7 +220,11 @@ def update_password():
 db_patient = mongo.db.patients
 
 @app.route('/patients', methods= ['POST'])
+@jwt_required()
+
 def createPatients():
+    current_user = get_jwt_identity()
+
     #imprime los datos que el cliente te está enviando
     #print(request.json)
     id = db_patient.insert_one({
@@ -200,7 +240,9 @@ def createPatients():
 
 
 @app.route('/patients', methods= ['GET'])
+@jwt_required()
 def getPatients():
+    current_user = get_jwt_identity()
     patients = []
     for pat in db_patient.find():
         patients.append({
@@ -216,7 +258,9 @@ def getPatients():
     return jsonify(patients)
 
 @app.route('/patients/<id>', methods= ['GET'])
+@jwt_required()
 def getPatient(id):
+    current_user = get_jwt_identity()
     patient=db_patient.find_one({'_id':ObjectId(id)})
     return jsonify({
         "_id": str(ObjectId(patient['_id'])),
@@ -230,7 +274,9 @@ def getPatient(id):
     })
 
 @app.route('/patients/<id>', methods= ['DELETE'])
+@jwt_required()
 def deletePatient(id):
+    current_user = get_jwt_identity()
     patient = db_patient.delete_one({"_id":ObjectId(id)})
     return jsonify({
         "msg": "patient deleted",
@@ -238,7 +284,9 @@ def deletePatient(id):
         })
 
 @app.route('/patients/<id>', methods= ['PUT'])
+@jwt_required()
 def updatePatient(id):
+    current_user = get_jwt_identity()
     db_patient.update_one({"_id":ObjectId(id)},{'$set':{
         'name':request.json["name"],
         'dni':request.json["dni"],
@@ -263,9 +311,10 @@ def updatePatient(id):
 #Definición de colección de media
 
 db_observation = mongo.db.observations
-
 @app.route('/observations', methods=['POST'])
+@jwt_required()
 def createObservation():
+    current_user = get_jwt_identity()
     try:
         #aca quizás se necesite cambiar a string(patient_id) en la fila 205
         
@@ -312,7 +361,9 @@ def createObservation():
         return e
 
 @app.route('/observations', methods= ['GET'])
+@jwt_required()
 def getObservations():
+    current_user = get_jwt_identity()
     observations = []
     for med in db_observation.find():
         observations.append({
@@ -324,7 +375,9 @@ def getObservations():
     return jsonify(observations)
 
 @app.route('/observations/<id>', methods= ['GET'])
+@jwt_required()
 def getObservation(id):
+    current_user = get_jwt_identity()
     observation=db_observation.find_one({'_id':int(id)})
     return jsonify({
         "_id": str(str(observation['_id'])),
@@ -334,7 +387,9 @@ def getObservation(id):
     })
 
 @app.route('/observations/<id>', methods= ['DELETE'])
+@jwt_required()
 def deleteObservation(id):
+    current_user = get_jwt_identity()
     observation = db_observation.delete_one({"_id":int(id)})
     return jsonify({
         "msg": "observation deleted",
@@ -342,7 +397,9 @@ def deleteObservation(id):
         })
 
 @app.route('/observations/<id>', methods= ['PUT'])
+@jwt_required()
 def updateObservation(id):
+    current_user = get_jwt_identity()
     #aca quizás se necesite cambiar a string(patient_id) en la fila 205
     patient_id=request.json['patient_id']
     doctor_id=request.json['doctor_id']
@@ -375,7 +432,9 @@ def updateObservation(id):
 db_media = mongo.db.medias
 
 @app.route('/medias', methods=['POST'])
+@jwt_required()
 def createMedia():
+    current_user = get_jwt_identity()
     #try:    
     eeg_file=request.files["file"]
 
@@ -516,7 +575,9 @@ def createMedia():
     #    return jsonify({"error": str(e)})
 
 @app.route('/medias', methods= ['GET'])
+@jwt_required()
 def getMedias():
+    current_user = get_jwt_identity()
     medias = []
     for med in db_media.find():
         medias.append({
@@ -527,6 +588,7 @@ def getMedias():
     return jsonify(medias)
 
 @app.route('/medias/<id>', methods= ['GET'])
+@jwt_required()
 def getMedia(id):
     media=db_media.find_one({'_id':ObjectId(id)})
     return jsonify({
@@ -536,7 +598,9 @@ def getMedia(id):
     })
 
 @app.route('/medias/<id>', methods= ['DELETE'])
+@jwt_required()
 def deleteMedia(id):
+    current_user = get_jwt_identity()
     media = db_media.find_one({'_id':ObjectId(id)})
     file = mongo.db.fs.files.find_one({'filename': media['file_name']})
     _ = db_media.delete_one({"_id":ObjectId(id)})
@@ -558,10 +622,12 @@ def deleteMedia(id):
 db_result = mongo.db.results
 
 @app.route('/results', methods=['POST'])
+@jwt_required()
 def createResult():
     try:
         ultima_result = db_result.find_one(sort=[("_id", -1)])
         ultimo_correlativo = ultima_result['_id'] if ultima_result else 0
+        current_user = get_jwt_identity()
 
         #aca quizás se necesite cambiar a string(patient_id) en la fila 205
         observation_id=request.json['observation_id']
@@ -597,7 +663,9 @@ def createResult():
         return e
 
 @app.route('/results', methods= ['GET'])
+@jwt_required()
 def getResults():
+    current_user = get_jwt_identity()
     results = []
     for res in db_result.find():
         results.append({
@@ -609,7 +677,9 @@ def getResults():
     return jsonify(results)
 
 @app.route('/results/<id>', methods= ['GET'])
+@jwt_required()
 def getResult(id):
+    current_user = get_jwt_identity()
     result=db_result.find_one({'_id':int(id)})
     return jsonify({
         "_id": (int(result['_id'])),
@@ -619,7 +689,9 @@ def getResult(id):
     })
 
 @app.route('/results/<id>', methods= ['DELETE'])
+@jwt_required()
 def deleteResult(id):
+    current_user = get_jwt_identity()
     result = db_result.delete_one({"_id":int(id)})
     return jsonify({
         "msg": "result deleted",
@@ -627,7 +699,9 @@ def deleteResult(id):
         })
 
 @app.route('/results/<id>', methods= ['PUT'])
+@jwt_required()
 def updateResult(id):
+    current_user = get_jwt_identity()
     #aca quizás se necesite cambiar a string(patient_id) en la fila 205
     observation_id=request.json['observation_id']
     print("########################")
@@ -650,7 +724,9 @@ def updateResult(id):
 # Del archivo que hemos alamcenado obtenemos el array, 
 # falta configurar para que devuelva en un json los 23 canales 
 @app.route('/files/<id>', methods= ['GET'])
+@jwt_required()
 def getFile(id):
+    current_user = get_jwt_identity()
 
     media=db_media.find_one({'_id':ObjectId(id)})
 
