@@ -884,32 +884,32 @@ if __name__ == "__main__":
 
 
 
-for i in raw.ch_names:
-  if i in b:
-    count+=1
-if count==23:
-  lst_seg_ictal=[]
-  df = pd.DataFrame(columns= ['Coeficiente_' + str(i) for i in range(256+1)])
-  ss=load('std_scaler.bin')
-  #model = load_model('DWT_prime_model.h5')
-  for t in tqdm(range(int(np.divide(raw.n_times,256))), desc="Procesando Predicción"):
-      df_copy=df
-      #registro_paciente = {}
-      for c in (raw.ch_names):
-        if (c in b):
-          fig=raw.get_data(picks=raw.ch_names.index(c),start=t*256, stop=(t+1)*256)
-          if (sum(fig[0])!=0): 
-              #registro_paciente[c] = fig[0]
-              array = dwt.wavelet_denoising(fig[0], wavelet="db18", level=1)
-              array = np.insert(array, 0,b.index(c))
-              #print(b.index(c))
-              new_row = pd.Series(array.flatten(), index=df_copy.columns)
-              df_copy = pd.concat([df_copy, new_row.to_frame().T], ignore_index=True)
-      X=np.array(df_copy)
-      #print(X.shape)
-      data_reshaped = X.reshape((X.shape[0]*X.shape[1]))
-      data_scaled=ss.transform(data_reshaped.reshape(1, -1))
-      X_norm = data_scaled.reshape(X.shape)
-      y_predic = np.round(model.predict(X_norm.reshape(1, X.shape[0], X.shape[1]),verbose=0))
-      if(y_predic==0):
-        lst_seg_ictal+=[[t,t+1]]
+# for i in raw.ch_names:
+#   if i in b:
+#     count+=1
+# if count==23:
+#   lst_seg_ictal=[]
+#   df = pd.DataFrame(columns= ['Coeficiente_' + str(i) for i in range(256+1)])
+#   ss=load('std_scaler.bin')
+#   #model = load_model('DWT_prime_model.h5')
+#   for t in tqdm(range(int(np.divide(raw.n_times,256))), desc="Procesando Predicción"):
+#       df_copy=df
+#       #registro_paciente = {}
+#       for c in (raw.ch_names):
+#         if (c in b):
+#           fig=raw.get_data(picks=raw.ch_names.index(c),start=t*256, stop=(t+1)*256)
+#           if (sum(fig[0])!=0): 
+#               #registro_paciente[c] = fig[0]
+#               array = dwt.wavelet_denoising(fig[0], wavelet="db18", level=1)
+#               array = np.insert(array, 0,b.index(c))
+#               #print(b.index(c))
+#               new_row = pd.Series(array.flatten(), index=df_copy.columns)
+#               df_copy = pd.concat([df_copy, new_row.to_frame().T], ignore_index=True)
+#       X=np.array(df_copy)
+#       #print(X.shape)
+#       data_reshaped = X.reshape((X.shape[0]*X.shape[1]))
+#       data_scaled=ss.transform(data_reshaped.reshape(1, -1))
+#       X_norm = data_scaled.reshape(X.shape)
+#       y_predic = np.round(model.predict(X_norm.reshape(1, X.shape[0], X.shape[1]),verbose=0))
+#       if(y_predic==0):
+#         lst_seg_ictal+=[[t,t+1]]
