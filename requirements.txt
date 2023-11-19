@@ -17,12 +17,12 @@ botocore==1.31.70
 brotlipy==0.7.0
 cached-property==1.5.2
 cachetools==5.3.1
-certifi @ file:///C:/b/abs_85o_6fm0se/croot/certifi_1671487778835/work/certifi
-cffi @ file:///C:/b/abs_49n3v2hyhr/croot/cffi_1670423218144/work
+#certifi @ file:///C:/b/abs_85o_6fm0se/croot/certifi_1671487778835/work/certifi
+#cffi @ file:///C:/b/abs_49n3v2hyhr/croot/cffi_1670423218144/work
 charset-normalizer==3.1.0
 click==8.1.6
 colorama==0.4.6
-cryptography @ file:///C:/b/abs_b7d7drzbky/croot/cryptography_1673298763653/work
+#cryptography @ file:///C:/b/abs_b7d7drzbky/croot/cryptography_1673298763653/work
 cycler==0.11.0
 debugpy==1.6.7
 decorator==5.1.1
@@ -52,7 +52,7 @@ googleapis-common-protos==1.59.0
 grpcio==1.54.2
 h5py==3.8.0
 httplib2==0.22.0
-idna @ file:///C:/b/abs_bdhbebrioa/croot/idna_1666125572046/work
+#idna @ file:///C:/b/abs_bdhbebrioa/croot/idna_1666125572046/work
 importlib-metadata==6.6.0
 importlib-resources==5.12.0
 ipykernel==6.16.2
@@ -112,14 +112,14 @@ protobuf==3.19.6
 psutil==5.9.5
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
-pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
+#pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
 Pygments==2.15.1
 PyJWT==2.8.0
 pymongo==4.4.1
-pyOpenSSL @ file:///opt/conda/conda-bld/pyopenssl_1643788558760/work
+#pyOpenSSL @ file:///opt/conda/conda-bld/pyopenssl_1643788558760/work
 pyparsing==3.0.9
 pyrsistent==0.19.3
-PySocks @ file:///C:/ci/pysocks_1594394709107/work
+#PySocks @ file:///C:/ci/pysocks_1594394709107/work
 python-dateutil==2.8.2
 python-json-logger==2.0.7
 pytz==2023.3
@@ -165,7 +165,7 @@ webcolors==1.13
 webencodings==0.5.1
 websocket-client==1.5.2
 Werkzeug==2.2.3
-win-inet-pton @ file:///C:/ci/win_inet_pton_1605306165655/work
+#win-inet-pton @ file:///C:/ci/win_inet_pton_1605306165655/work
 wincertstore==0.2
 wrapt==1.15.0
 y-py==0.5.9
