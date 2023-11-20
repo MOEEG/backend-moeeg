@@ -1,6 +1,6 @@
 FROM alpine:3.10
 
-RUN apk add python3-dev=3.8 \
+RUN apk add python3-dev=3.8.12-r1 \
     && pip3 install --upgrade pip \
     && apk add build-base
 
