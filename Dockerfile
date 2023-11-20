@@ -2,14 +2,20 @@
 FROM ubuntu:20.04
 
 # Actualiza el índice de paquetes e instala las dependencias necesarias
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    && python3.8 \
-    && python3.8-dev \
-    && python3-pip \
-    && build-essential \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    software-properties-common
+
+# Agrega el repositorio de deadsnakes y actualiza el índice de paquetes
+RUN add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update
+
+# Instala Python 3.8 y las herramientas de desarrollo necesarias
+RUN apt-get install -y \
+    python3.8 \
+    python3.8-dev \
+    python3-pip \
+    build-essential
 
 # Configura Python para que use UTF-8 y actualiza pip
 ENV PYTHONUNBUFFERED=1 \
