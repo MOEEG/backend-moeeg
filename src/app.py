@@ -102,7 +102,7 @@ def logout():
 
 @app.route('/get_user', methods=['GET'])
 @jwt_required()
-def get_user():  
+def get_user():
     print(get_jwt_identity())
     current_user = get_jwt_identity()
     user = db_user.find_one({'username': current_user}, {'password': 0})  # Excluir la contraseña en la respuesta
@@ -110,12 +110,14 @@ def get_user():
         print(user)
         return jsonify(
             {
-        "username":user['username'],
-        "name":user['name'],
-        "dni":user['dni'],
-        "email":user['email'],
-        "phone":user['phone'],
-        "age":user['age']
+        "_id":str(ObjectId(user['_id'])),
+        #str(ObjectId(pat['_id']))
+        # "username":user['username'],
+        # "name":user['name'],
+        # "dni":user['dni'],
+        # "email":user['email'],
+        # "phone":user['phone'],
+        # "age":user['age']
         }
         ), 200
     else:
