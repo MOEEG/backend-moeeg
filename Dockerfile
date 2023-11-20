@@ -1,14 +1,8 @@
 FROM alpine:3.10
 
-RUN apk add --no-cache python3-dev \
+RUN apk add --no-cache python3-dev=3.8 \
     && pip3 install --upgrade pip \
-    && apk add build-base \
-    && apk add gcc \
-    && apk add abuild \
-    && apk add python3-dev \
-    && apk add musl-dev \
-    && apk add linux-headers \
-    && apk add bash
+    && apk add build-base
 
 WORKDIR /app
 

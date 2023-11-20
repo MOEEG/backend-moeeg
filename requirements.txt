@@ -1,4 +1,4 @@
-tensorflow==2.6.0
+tensorflow
 numpy==1.21.2
 pandas
 Flask==2.2.5
