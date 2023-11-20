@@ -6,8 +6,8 @@ RUN apt-get update
 
 # Instala Python 3.8 y las herramientas de desarrollo necesarias
 RUN apt-get install -y \
-    && python3.7 \
-    && python3.7-dev \
+    && python3.8 \
+    && python3.8-dev \
     && python3-pip \
     && build-essential
 
