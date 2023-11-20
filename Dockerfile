@@ -1,20 +1,14 @@
 FROM alpine:3.10
 
-RUN apt-get update && apt-get install -y \
-    && python3-dev \
-    && build-essential \
-    && libnumpy-dev \
-    && libopenblas-dev \
-    && libblas-dev \
-    && liblapack-dev \
-    && libatlas-base-dev \
-    && libhdf5-dev \
-    && libhdf5-serial-dev \
-    && libprotobuf-dev \
-    && protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install --upgrade pip
+RUN apk add --no-cache python3-dev \
+    && pip3 install --upgrade pip \
+    && apk add build-base \
+    && apk add gcc \
+    && apk add abuild \
+    && apk add python3-dev \
+    && apk add musl-dev \
+    && apk add linux-headers \
+    && apk add bash
 
 WORKDIR /app
 
