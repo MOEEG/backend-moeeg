@@ -39,6 +39,10 @@ def revoke_token(jti):
 ####################################
 db_user = mongo.db.users
 
+@app.route('/')
+def hola_mundo():
+    return 'HOLA MUNDO'
+
 @app.route('/register', methods=['POST'])
 def register():
     existing_user = db_user.find_one({'username': request.json["dni"]})
