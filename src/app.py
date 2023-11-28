@@ -18,9 +18,7 @@ from secrets import token_hex
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 
 app = Flask(__name__)
-
-#app.config['MONGO_URI']='mongodb://18.117.180.53:27017/moeegdb'
-app.config['MONGO_URI']='mongodb://18.117.240.49/moeegdb'
+app.config['MONGO_URI']='mongodb://18.222.164.177/moeegdb'
 #app.config['MONGO_URI']='mongodb://localhost/moeegdb'
 app.config['SECRET_KEY'] = token_hex(16)
 #La conexión
@@ -32,10 +30,18 @@ revoked_tokens = set()
 # Settings
 CORS(app)
 
+
+def revoke_token(jti):
+    revoked_tokens.add(jti)
+
 ####################################
 ######### Registrar Doctor #########
 ####################################
 db_user = mongo.db.users
+
+@app.route('/')
+def hola_mundo():
+    return 'HOLA MUNDO'
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -83,7 +89,7 @@ def login():
 @jwt_required()
 def logout():
     jti = get_jwt()['jti']
-    revoked_tokens.add(jti)
+    revoke_token(jti)
     return jsonify({'message': 'Logout successful'}), 200
 
 # Ruta para verificar el estado del usuario actual
@@ -873,7 +879,43 @@ def getPredict(id):
         return "Archivo no encontrado", 404
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000 ,debug=True)
 
 
 
+
+
+
+
+
+
+
+# for i in raw.ch_names:
+#   if i in b:
+#     count+=1
+# if count==23:
+#   lst_seg_ictal=[]
+#   df = pd.DataFrame(columns= ['Coeficiente_' + str(i) for i in range(256+1)])
+#   ss=load('std_scaler.bin')
+#   #model = load_model('DWT_prime_model.h5')
+#   for t in tqdm(range(int(np.divide(raw.n_times,256))), desc="Procesando Predicción"):
+#       df_copy=df
+#       #registro_paciente = {}
+#       for c in (raw.ch_names):
+#         if (c in b):
+#           fig=raw.get_data(picks=raw.ch_names.index(c),start=t*256, stop=(t+1)*256)
+#           if (sum(fig[0])!=0): 
+#               #registro_paciente[c] = fig[0]
+#               array = dwt.wavelet_denoising(fig[0], wavelet="db18", level=1)
+#               array = np.insert(array, 0,b.index(c))
+#               #print(b.index(c))
+#               new_row = pd.Series(array.flatten(), index=df_copy.columns)
+#               df_copy = pd.concat([df_copy, new_row.to_frame().T], ignore_index=True)
+#       X=np.array(df_copy)
+#       #print(X.shape)
+#       data_reshaped = X.reshape((X.shape[0]*X.shape[1]))
+#       data_scaled=ss.transform(data_reshaped.reshape(1, -1))
+#       X_norm = data_scaled.reshape(X.shape)
+#       y_predic = np.round(model.predict(X_norm.reshape(1, X.shape[0], X.shape[1]),verbose=0))
+#       if(y_predic==0):
+#         lst_seg_ictal+=[[t,t+1]]
