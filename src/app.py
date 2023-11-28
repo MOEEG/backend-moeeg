@@ -17,7 +17,7 @@ from flask_bcrypt import Bcrypt
 from secrets import token_hex
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 
-app = Flask(_name_)
+app = Flask(__name__)
 
 #app.config['MONGO_URI']='mongodb://18.117.180.53:27017/moeegdb'
 app.config['MONGO_URI']='mongodb://18.117.240.49/moeegdb'
@@ -872,5 +872,8 @@ def getPredict(id):
     else:
         return "Archivo no encontrado", 404
 
-if __name__ == "_main_":
-    app.run(host="0.0.0.0", port=5000 ,debug=True)
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
