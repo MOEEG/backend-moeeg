@@ -18,7 +18,7 @@ from secrets import token_hex
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 
 app = Flask(__name__)
-app.config['MONGO_URI']='mongodb://3.15.39.34/moeegdb'
+app.config['MONGO_URI']='mongodb://54.242.157.138/moeegdb'
 #app.config['MONGO_URI']='mongodb://localhost/moeegdb'
 app.config['SECRET_KEY'] = token_hex(16)
 #La conexión
